@@ -5,6 +5,7 @@ import { redisDelete, redisGet, redisSet } from "../utils/redis";
 import STATUS_CODES from "../utils/status-codes";
 import { encodeToken } from "../utils/token";
 import { isEmailValid } from "../utils/email";
+import { checkOTPRequest } from "./services/otp";
 
 export default async function validateOtp(req: Request, res: Response) {
   const { email, otp } = req.body;
@@ -22,20 +23,17 @@ export default async function validateOtp(req: Request, res: Response) {
   const otpRedisVal = await redisGet(OTP_KEY);
   const { otp: otpForEmail, tries } = JSON.parse(otpRedisVal ?? "{}");
 
-  if (!otpForEmail) {
-    return res.status(STATUS_CODES.BAD_REQUEST).json({
+  // Check if the validate-otp request is valid
+  const otpRequestCheck = checkOTPRequest(otpForEmail, email, tries);
+
+  if (!otpRequestCheck.valid) {
+    return res.status(otpRequestCheck.statusCode).json({
       status: "failure",
-      msg: `OTP not found for email ${email}. Request OTP again.`,
+      msg: otpRequestCheck.msg,
     });
   }
 
-  if (tries === 0) {
-    return res.status(STATUS_CODES.BAD_REQUEST).json({
-      status: "failure",
-      msg: "Exceeded retry limit for OTP. Request OTP again",
-    });
-  }
-
+  // Reduce the number of retries on invalid OTP
   if (otpForEmail !== otpEntered) {
     const newTries = tries - 1;
     if (newTries === 0) {
@@ -55,6 +53,7 @@ export default async function validateOtp(req: Request, res: Response) {
     });
   }
 
+  // Check if user exists, else create a new user
   const users = await getUsers(
     [{ field: "email", operation: "eq", value: email }],
     ["id", "first_name", "last_name", "email"]
@@ -75,13 +74,15 @@ export default async function validateOtp(req: Request, res: Response) {
     user = users[0];
   }
 
+  await redisDelete(OTP_KEY);
+
+  // Create JWT for the user with the partial user object for 24h
   const token = encodeToken(user);
 
   const tokenExpiry = new Date();
   tokenExpiry.setTime(tokenExpiry.getTime() + 24 * 60 * 60 * 1000); // token expires in 24h
 
-  await redisDelete(OTP_KEY);
-
+  // Set the JWT as a cookie
   res.cookie("token", token, {
     expires: tokenExpiry,
     secure: true,

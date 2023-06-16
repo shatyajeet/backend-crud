@@ -10,6 +10,10 @@ import validateUser from "./services/validate-user";
 const upload = multer({ dest: "images/" });
 const usersRouter = Router();
 
+/*
+  "authenticate" middleware decodes the JWT and validates the token expiry
+  "validateUser" middleware checks if the requested user details match the user id in the token
+*/
 usersRouter.get("/:user_id", authenticate, validateUser, getUser);
 usersRouter.put("/:user_id", authenticate, validateUser, putUser);
 

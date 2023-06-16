@@ -12,7 +12,9 @@ import users from "./users";
 import { initRedis } from "./utils/redis";
 import { initKnex } from "./utils/db";
 
+// Using redis to store the OTP and the number of retries.
 initRedis();
+// Using knex to connect with the database instead of a full-blown ORM to reduce SQL overhead
 initKnex();
 
 const app: Express = express();
@@ -23,9 +25,9 @@ app.use(bodyParser.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
 
-app.use("/auth", auth);
-app.use("/geo", geo);
-app.use("/users", users);
+app.use("/auth", auth); // The authentication routes
+app.use("/geo", geo); // The countries, states and cities routes
+app.use("/users", users); // The users routes for CRUD
 
 app.listen(port, () => {
   console.log(`Server running at port: ${port}`);

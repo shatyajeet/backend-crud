@@ -20,6 +20,7 @@ interface UserInsert {
 
 const returnFields = ["id", "email", "first_name", "last_name"];
 
+// Create a generic get users query
 export async function getUsers(
   filters: Filter[] = [],
   columns: string | string[] = "*"
@@ -31,6 +32,7 @@ export async function getUsers(
     if (filter.operation === "eq") {
       users_query = users_query.where(filter.field, filter.value);
     }
+    // more filters like 'in', 'gte', etc can be applied here
   }
 
   const users = await users_query.select(columns);
